@@ -7,6 +7,14 @@ Setup a virtual environment and install the dependencies:
 ```shell
 pip install opencv-python
 pip install matplotlib
+pip install beautifulsoup4
+pip install requests
+```
+
+## Scraping for robots
+To create a json with all meta information from the robots listed at https://robots.ieee.org/robots/, run:
+```
+python scrape_ieee.py 
 ```
 
 ## Selecting the robots
