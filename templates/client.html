@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Explore the speaker embeddings</title>
+</head>
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css"
+      integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+<script src="https://code.jquery.com/jquery-2.2.4.min.js"
+        integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44=" crossorigin="anonymous"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
+        integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
+        crossorigin="anonymous"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
+        integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
+        crossorigin="anonymous"></script>
+<body>
+
+<!DOCTYPE html>
+<meta>
+
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-sm">
+            <form id="form">
+                <div class="form-group">
+                    <label htmlFor="text">Text</label>
+                    <input type="text" class="form-control" id="text" aria-describedby="text"
+                           value="The quick brown fox jumps over the lazy dog.">
+                </div>
+<!--                Dropdown menu -->
+                <div class="form-group">
+                    <label for="flanger_type">Flanger type</label>
+                    <select id="flanger_type">
+                        <option value="0">Effect 1</option>
+                        <option value="1">Effect 2</option>
+                        <option value="2">Effect 3</option>
+                        <option value="3">Effect 4</option>
+                        <option value="4">Effect 5</option>
+                    </select>
+                </div>
+<!--                Dropdown menu -->
+                <div class="form-group">
+                    <label for="algorithm_name">Algorithm name</label>
+                    <select id="algorithm_name">
+                        <option value="CCA">CCA</option>
+                        <option value="PCA">PCA</option>
+                    </select>
+                </div>
+
+<!--                <div class="form-group">-->
+<!--                    <label for="server">Server</label>-->
+<!--                    <select id="server">-->
+<!--                        <option value="">New</option>-->
+<!--                        <option value="http://ec2-3-73-100-131.eu-central-1.compute.amazonaws.com:5000">Old</option>-->
+<!--                    </select>-->
+<!--                </div>-->
+            </form>
+        </div>
+        <div class="col-sm">
+            <div id="result">
+            </div>
+            <pre><code id="code_block">
+            </code></pre>
+            <a class="btn btn-primary" download href="#" id="download_botton" role="button">Download file</a>
+
+        </div>
+    </div>
+</div>
+
+
+<script>
+    var synth_dict;
+    const N_DIMENSIONS = 5;
+    const N_STEPS = 16;
+
+    function print_synth_dict(synth_dict, url) {
+        document.getElementById('code_block').innerText = JSON.stringify(synth_dict, null, 2);
+        document.getElementById('download_botton').href = url
+    }
+
+    function stringToHTML(str) {
+        var dom = document.createElement('div');
+        dom.innerHTML = str;
+        return dom;
+    }
+
+    function append_slider(key, label, value, min, max, annotation = '', disabled) {
+        var step_size = (Math.abs(min) + Math.abs(max)) / (N_STEPS - 1)
+        var out = '<div class="form-group">';
+        out += '<label for="' + key + '">' + label + '</label>';
+        out += '<small class="form-text text-muted">' + annotation + '</small>';
+        out += '<div class="row">';
+        if (disabled) {
+            disabled= 'disabled';
+        } else {
+            disabled = '';
+        }
+        out += '<input type="range" class="slider col custom-range" id="' + key + '"  min="' + min + '" max="' + max + '" value="' + value + '" step="' + step_size + '" ' + disabled + '>';
+        out += '</div>';
+        out += '</div>';
+        $('#form').append(stringToHTML(out));
+    }
+
+
+    // Add sliders
+    var sliders = {
+        'Voice dimension 1': {
+            'key': 'dim1',
+            'value': 0,
+            'min': -14,
+            'max': 16,
+            'annotation': ''
+            // 'annotation': 'sex'
+        },
+        'Voice dimension 2': {
+            'key': 'dim2',
+            'value': 0,
+            'min': -14,
+            'max': 16,
+            'annotation': ''
+            // 'annotation': 'closeness to microphone'
+        },
+        'Voice dimension 3': {
+            'key': 'dim3',
+            'value': 0,
+            'min': -14,
+            'max': 16,
+            'annotation': ''
+        },
+        'Voice dimension 4': {
+            'key': 'dim4',
+            'value': 0,
+            'min': -14,
+            'max': 16,
+            'annotation': ''
+            // 'annotation': 'screaminess'
+        },
+        'Voice dimension 5': {
+            'key': 'dim5',
+            'value': 0,
+            'min': -14,
+            'max': 16,
+            'annotation': ''
+        },
+        // 'Voice dimension 6': {
+        //     'key': 'dim6',
+        //     'value': 0,
+        //     'min': -14,
+        //     'max': 16,
+        //     'annotation': ''
+        // },
+        // 'Voice dimension 7': {
+        //     'key': 'dim7',
+        //     'value': 0,
+        //     'min': -14,
+        //     'max': 16,
+        //     'annotation': ''
+        // },
+        // 'Voice dimension 8': {
+        //     'key': 'dim8',
+        //     'value': 0,
+        //     'min': -14,
+        //     'max': 16,
+        //     'annotation': ''
+        //     // 'annotation': 'pitch'
+        // },
+        // 'Voice dimension 9': {
+        //     'key': 'dim9',
+        //     'value': 0,
+        //     'min': -14,
+        //     'max': 16,
+        //     'annotation': ''
+        //     // 'annotation': 'tempo'
+        // },
+        // 'Voice dimension 10': {
+        //     'key': 'dim10',
+        //     'value': 0,
+        //     'min': -14,
+        //     'max': 16,
+        //     'annotation': ''
+        // },
+        'Speed': {
+            'key': 'speed',
+            'value': 7,
+            'min': 0,
+            'max': N_STEPS - 1,
+            'annotation': 'Change duration'
+        },
+        'Pitch shift': {
+            'key': 'pitch_shift',
+            'value': 7,
+            'min': 0,
+            'max': N_STEPS - 1,
+            'annotation': 'Change pitch height (disabled because of too many artifacts)',
+            // 'disabled': true
+        },
+        'Pitch range': {
+            'key': 'pitch_range',
+            'value': 7,
+            'min': 0,
+            'max': N_STEPS - 1,
+            'annotation': 'Change pitch range (disabled because of too many artifacts)',
+            'disabled': true
+        },
+        'Pitch': {
+            'key': 'pitch',
+            'value': 0,
+            'min': 0,
+            'max': N_STEPS - 1,
+            'annotation': ''
+        },
+        'Tremolo': {
+            'key': 'tremolo',
+            'value': 0,
+            'min': 0,
+            'max': N_STEPS - 1,
+            'annotation': 'Periodically changing intensity'
+        },
+        'Flanger': {
+            'key': 'flanger',
+            'value': 0,
+            'min': 0,
+            'max': N_STEPS - 1,
+            'annotation': ''
+        },
+        'Griffin lin': {
+            'key': 'griffin',
+            'value': 0,
+            'min': 0,
+            'max': N_STEPS - 1,
+            'annotation': ''
+        },
+        'Time shift': {
+            'key': 'timeshift',
+            'value': 0,
+            'min': 0,
+            'max': N_STEPS - 1,
+            'annotation': ''
+        },
+    };
+
+    for (const [label, value_dict] of Object.entries(sliders)) {
+
+        append_slider(value_dict['key'], label, value_dict['value'], value_dict['min'], value_dict['max'], value_dict['annotation'], value_dict.disabled)
+    }
+
+    $('#demo, .slider, select').change(function (x) {
+        synth_dict = {};
+        $('input, select').each(function (i, item) {
+            synth_dict[item.id] = [item.value];
+        });
+
+        var weights = []
+        for (var i = 0; i < N_DIMENSIONS; i++) {
+            var value = synth_dict['dim' + (i + 1)][0]
+            weights.push(parseFloat(value))
+        }
+        weights = [weights]
+        synth_dict['weights'] = JSON.stringify(weights)
+        // To avoid caching
+        synth_dict['random_key'] = (Math.random() + 1).toString(36).substring(2)
+        synth_dict['number'] = N_DIMENSIONS
+        synth_dict['n_slider_ticks'] = N_STEPS
+
+        var old_audio = document.getElementById("audio");
+        if (old_audio) {
+            old_audio.pause()
+            old_audio.remove()
+        }
+
+
+        var url = '/synthesize?' + dictToURI(synth_dict);
+        print_synth_dict(synth_dict, url)
+        console.log(synth_dict)
+        document.getElementById('result').append(stringToHTML(
+            '<audio id="audio">' +
+            '<source src="' + url + '" type="audio/wav">' +
+            'Your browser does not support the audio element.' +
+            '</audio>'
+        ))
+
+        var new_audio = document.getElementById("audio");
+        new_audio.play()
+    })
+
+
+    function dictToURI(dict) {
+        var str = [];
+        for (var p in dict) {
+            str.push(encodeURIComponent(p) + "=" + encodeURIComponent(dict[p]));
+        }
+        return str.join("&");
+    }
+
+</script>
+
+</body>
+</html>
