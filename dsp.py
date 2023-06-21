@@ -1,8 +1,13 @@
+import os
+
 import librosa.effects
 import numpy as np
 import math
+from scipy import signal
+from scipy import io
+from pedalboard import Pedalboard, load_plugin
 
-class RobotFx():
+class Fx():
     def __init__(self, sr):
         self.framerate = sr
         self.fx_functions = {"flanger": self.flanger,
@@ -11,7 +16,13 @@ class RobotFx():
                              "tremolo": self.ge_tremolo,
                              "chorus": self.chorus,
                              "pitch": self.pitch,
-                             "griffin": self.griffin}
+                             "griffin": self.griffin,
+                             "timestretch": self.timestretch,
+                             "timeshift": self.timeshift,
+                             "vocoder": self.vocoder}
+        # vst3_path = os.path.join(os.path.expanduser("~"), '.VST3', 'TAL-Vocoder-2.vst3')
+        self.vst_vocoder = load_plugin("./VSTs/TAL-Vocoder-2.vst3")
+        self.vst_vocoder.inputmode = 1
 
     def generate_wave_input(self, freq, length, rate=44100, phase=0.0):
         length = int(length * rate)
@@ -165,9 +176,122 @@ class RobotFx():
         audio_signal = np.append(audio_signal,pad)
         return audio_signal
 
-    def process_audio(self, input_data, factors, additional_parameters=None):
+    def timestretch(self, input_signal, speed= 1.0):
+        audio_signal = librosa.effects.time_stretch(input_signal, rate=speed)
+        return audio_signal
+
+    def timeshift(self, input_signal, shift_ms=10):
+        padding_signal_length = (self.framerate / 1000) * shift_ms
+        padding_signal = np.zeros(int(padding_signal_length),dtype=np.float32)
+        s1 = np.concatenate((padding_signal, input_signal), axis=0)
+        s2 = np.concatenate(( input_signal, padding_signal), axis=0)
+        out = np.add(s1,s2) / 2.0
+        return out
+
+    def vocoder(self, input_signal, additional_parameters=None):
+        # if "volume" in additional_parameters.keys():
+        #     self.vst_vocoder.volume = additional_parameters["volume"]
+        # if "noisevolume" in additional_parameters.keys():
+        #     self.noisevolume.noisevolume = additional_parameters["noisevolume"]
+        # if "pulsevolume" in additional_parameters.keys():
+        #     self.vst_vocoder.pulsevolume = additional_parameters["pulsevolume"]
+        # if "sawvolume" in additional_parameters.keys():
+        #     self.vst_vocoder.sawvolume = additional_parameters["sawvolume"]
+        # if "suboscvolume" in additional_parameters.keys():
+        #     self.vst_vocoder.suboscvolume = additional_parameters["suboscvolume"]
+        # if "osctranspose" in additional_parameters.keys():
+        #     self.vst_vocoder.osctranspose = additional_parameters["osctranspose"]
+        # if "suboscoctave" in additional_parameters.keys():
+        #     self.vst_vocoder.suboscoctave = additional_parameters["suboscoctave"]
+        # if "oscsync" in additional_parameters.keys():
+        #     self.vst_vocoder.oscsync = additional_parameters["oscsync"]
+        # if "pulsetune" in additional_parameters.keys():
+        #     self.vst_vocoder.pulsetune = additional_parameters["pulsetune"]
+        # if "sawtune" in additional_parameters.keys():
+        #     self.vst_vocoder.sawtune = additional_parameters["sawtune"]
+        # if "pulsefinetune" in additional_parameters.keys():
+        #     self.vst_vocoder.pulsefinetune = additional_parameters["pulsefinetune"]
+        # if "sawfinetune" in additional_parameters.keys():
+        #     self.noisevolume.sawfinetune = additional_parameters["sawfinetune"]
+        # if "polymode" in additional_parameters.keys():
+        #     self.vst_vocoder.polymode = additional_parameters["polymode"]
+        # if "portamento" in additional_parameters.keys():
+        #     self.vst_vocoder.portamento = additional_parameters["portamento"]
+        # if "tune" in additional_parameters.keys():
+        #     self.vst_vocoder.tune = additional_parameters["tune"]
+        # if "panic" in additional_parameters.keys():
+        #     self.vst_vocoder.panic = additional_parameters["panic"]
+        if "harmonics" in additional_parameters.keys():
+            self.vst_vocoder.harmonics = additional_parameters["harmonics"]
+        if "esserintensity" in additional_parameters.keys():
+            self.vst_vocoder.esserintensity = additional_parameters["esserintensity"]
+        if "chorus" in additional_parameters.keys():
+            self.vst_vocoder.chorus = additional_parameters["chorus"]
+        if "enveloperelease" in additional_parameters.keys():
+            self.vst_vocoder.enveloperelease = additional_parameters["enveloperelease"]
+        if "vocoderband00" in additional_parameters.keys():
+            self.vst_vocoder.vocoderband00 = additional_parameters["vocoderband00"]
+        if "vocoderband01" in additional_parameters.keys():
+            self.vst_vocoder.vocoderband01 = additional_parameters["vocoderband01"]
+        if "vocoderband02" in additional_parameters.keys():
+            self.vst_vocoder.vocoderband02 = additional_parameters["vocoderband02"]
+        if "vocoderband03" in additional_parameters.keys():
+            self.vst_vocoder.vocoderband03 = additional_parameters["vocoderband03"]
+        if "vocoderband04" in additional_parameters.keys():
+            self.vst_vocoder.vocoderband04 = additional_parameters["vocoderband04"]
+        if "vocoderband05" in additional_parameters.keys():
+            self.vst_vocoder.vocoderband05 = additional_parameters["vocoderband05"]
+        if "vocoderband06" in additional_parameters.keys():
+            self.vst_vocoder.vocoderband06 = additional_parameters["vocoderband06"]
+        if "vocoderband07" in additional_parameters.keys():
+            self.vst_vocoder.vocoderband07 = additional_parameters["vocoderband07"]
+        if "vocoderband08" in additional_parameters.keys():
+            self.vst_vocoder.vocoderband08 = additional_parameters["vocoderband08"]
+        if "vocoderband09" in additional_parameters.keys():
+            self.vst_vocoder.vocoderband09 = additional_parameters["vocoderband09"]
+        if "vocoderband10" in additional_parameters.keys():
+            self.vst_vocoder.vocoderband10 = additional_parameters["vocoderband10"]
+        if "vocoder_carrier_frequency" in additional_parameters.keys():
+            cf = additional_parameters["vocoder_carrier_frequency"]
+        else:
+            cf = 60
+
+        sr = int(self.framerate)
+        t = np.linspace(0, 1, sr, endpoint=False)
+        t = signal.square(2 * np.pi * int(cf) * t) * 0.2
+
+        len_input_signal = len(input_signal)
+        input_signal_times = math.floor(len_input_signal / sr)
+
+        rest = []
+        m = 0
+        for n in range(input_signal_times * sr, len_input_signal):
+            rest.append(t[m])
+            m+=1
+        rest = np.asarray(rest)
+
+        tmp_signal = t
+        if input_signal_times > 1:
+            for i in range(0, input_signal_times - 1):
+                tmp_signal = np.concatenate((tmp_signal, t))
+        if len(rest) > 0:
+            tmp_signal = np.concatenate((tmp_signal, rest))
+
+        stereo = np.stack((tmp_signal, input_signal), 0)
+
+        effected = self.vst_vocoder(stereo, sr)
+        y = np.float32(effected)
+        out = np.add(y[0], y[1]) / 2.0
+        return out
+
+    def process_audio(self, input_data, fx_chain, additional_parameters=None):
         y = input_data
-        for fx, l in factors.items():
+        for fx, l in fx_chain.items():
             if l > 0.0:
-                y = np.float32(((1.0 - l) * y + l * self.fx_functions[fx](y, additional_parameters=additional_parameters)))
+                if fx == "timestretch":
+                    y = np.float32(self.fx_functions[fx](y, speed= l))
+                elif fx == "timeshift":
+                    y = np.float32(self.fx_functions[fx](y, shift_ms=l))
+                else:
+                    y = np.float32(((1.0 - l) * y + l * self.fx_functions[fx](y, additional_parameters=additional_parameters)))
         return y
