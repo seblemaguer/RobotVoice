@@ -1,4 +1,4 @@
-from flask import Flask, request, send_file, make_response
+from flask import Flask, request, send_file, make_response, render_template
 
 app = Flask(__name__)
 
@@ -13,7 +13,7 @@ from tqdm import tqdm
 from parselmouth.praat import call
 from parselmouth import Sound
 from librosa import load
-from dsp import RobotFx
+from dsp import Fx
 from datetime import datetime
 from scipy.io.wavfile import write
 
@@ -35,9 +35,6 @@ warnings.simplefilter("ignore", UserWarning)
 
 def get_text(text, hps):
     text_norm = text_to_sequence(text, hps.data.text_cleaners)
-
-    # if letter_switch:
-    #     text_norm = apply_letter_switch(text_norm, letter_switch)
 
     if hps.data.add_blank:
         text_norm = commons.intersperse(text_norm, 0)
@@ -116,6 +113,131 @@ def normalize(audio, rms_level=-6):
     return audio * a
 
 
+SUPPORTED_VOICE_EFFECTS = ['speed', 'pitch_shift', 'pitch_range']
+
+ROBOT_EFFECT_TICKS = {
+    'pitch': [
+        0,  # off
+        0.08, 0.16,
+        0.25,  # slightly on
+        0.27, 0.29, 0.31,
+        0.33,  # somewhat on
+        0.35, 0.37, 0.40,
+        0.42,  # on
+        0.44, 0.46, 0.48,
+        0.50,  # max
+    ],
+    'tremolo': [
+        0,  # off
+        0.07, 0.13,
+        0.20,  # slightly on
+        0.22, 0.24, 0.25,
+        0.27,  # somewhat on
+        0.29, 0.31, 0.32,
+        0.34,  # on
+        0.36, 0.37, 0.39,
+        0.40,  # max
+    ],
+    'flanger': np.array([
+        0,  # off
+        0.08, 0.16,
+        0.25,  # slightly on
+        0.29, 0.33, 0.36,
+        0.40,  # somewhat on
+        0.43, 0.45, 0.48,
+        0.50,  # on
+        0.53, 0.55, 0.57,
+        0.60,  # max
+    ]) * 1.3,
+    'griffin': [
+        0,  # off
+        0.12, 0.24,
+        0.35,  # slightly on
+        0.40, 0.45, 0.50,
+        0.55,  # somewhat on
+        0.61, 0.68, 0.75,
+        0.81,  # on
+        0.86, 0.91, 0.95,
+        1.00,  # max
+    ],
+    'timeshift': [
+        0,  # off
+        3, 6,
+        9,  # slightly on
+        12, 15, 18,
+        21,  # somewhat on
+        24, 27, 30,
+        33,  # on
+        36, 39, 42,
+        45,  # max
+    ],
+    'flanger_type': [
+        1, 2, 3, 4, 5, 6, 7, 8
+    ],
+    'vocoder': [
+        0,  # off
+        0.12, 0.24,
+        0.35,  # slightly on
+        0.40, 0.45, 0.50,
+        0.55,  # somewhat on
+        0.61, 0.68, 0.75,
+        0.81,  # on
+        0.86, 0.91, 0.95,
+        1.00,  # max
+    ],
+    'vocoder_type': [
+        1, 2, 3, 4, 5, 6, 7, 8
+    ],
+
+}
+
+SUPPORTED_ROBOT_EFFECTS = list(ROBOT_EFFECT_TICKS.keys())
+
+
+def normalize_value(effect_name, value, zero_idx, n_slider_ticks):
+    assert type(value) == int or type(value) == float
+    assert value >= 0
+    assert value < n_slider_ticks, f"Effect {effect_name} must be < {n_slider_ticks}"
+    n = (n_slider_ticks - 1)
+    return (value / n) - (zero_idx / n)
+
+
+def get_slider_value(effect_name, value, zero_idx, n_slider_ticks):
+    if effect_name in ROBOT_EFFECT_TICKS:
+        return ROBOT_EFFECT_TICKS[effect_name][value]
+    else:
+        return normalize_value(effect_name, value, zero_idx, n_slider_ticks)
+
+
+def get_effects_dict(data, supported_effects, n_slider_ticks, zero_idx=0):
+    effects = {}
+    for effect_name in supported_effects:
+        assert effect_name in data, f"Effect {effect_name} not found in data"
+        value = data[effect_name]
+
+        if type(value) == str:
+            value = eval(value)
+
+        if effect_name == 'flanger_type':
+            print(f"Effect {effect_name} has value {value}")
+
+        if type(value) == list:
+            value = [get_slider_value(effect_name, v, zero_idx, n_slider_ticks) for v in value]
+        elif type(value) == int or type(value) == float:
+            value = [get_slider_value(effect_name, value, zero_idx, n_slider_ticks)]
+        else:
+            raise ValueError(f"Effect {effect_name} has invalid value {value}")
+
+        if effect_name == 'flanger_type':
+            print(f"Effect {effect_name} has value {value}")
+        effects[effect_name] = value
+    return effects
+
+
+def get_current_effect_values(effect_dict_list, index):
+    return {k: v[index] for k, v in effect_dict_list.items()}
+
+
 @app.route('/synthesize', methods=["POST", "GET"])
 def generate():
     gc.collect()
@@ -148,86 +270,16 @@ def generate():
         assert "algorithm_name" in data
         assert "number" in data
 
+    print(data)
+
     assert "n_slider_ticks" in data
-    N_SLIDER_TICKS = int(data["n_slider_ticks"])
+    n_slider_ticks = int(data["n_slider_ticks"])
 
-    effect_ticks = {
-        'pitch': [
-            0,  # off
-            0.08, 0.16,
-            0.25,  # slightly on
-            0.27, 0.29, 0.31,
-            0.33,  # somewhat on
-            0.35, 0.37, 0.40,
-            0.42,  # on
-            0.44, 0.46, 0.48,
-            0.50,  # max
-        ],
-        'tremolo': [
-            0,  # off
-            0.07, 0.13,
-            0.20,  # slightly on
-            0.22, 0.24, 0.25,
-            0.27,  # somewhat on
-            0.29, 0.31, 0.32,
-            0.34,  # on
-            0.36, 0.37, 0.39,
-            0.40,  # max
-        ],
-        'flanger': [
-            0,  # off
-            0.08, 0.16,
-            0.25,  # slightly on
-            0.29, 0.33, 0.36,
-            0.40,  # somewhat on
-            0.43, 0.45, 0.48,
-            0.50,  # on
-            0.53, 0.55, 0.57,
-            0.60,  # max
-        ],
-        'griffin': [
-            0,  # off
-            0.12, 0.24,
-            0.35,  # slightly on
-            0.40, 0.45, 0.50,
-            0.55,  # somewhat on
-            0.61, 0.68, 0.75,
-            0.81,  # on
-            0.86, 0.91, 0.95,
-            1.00,  # max
-        ],
-    }
+    voice_effects_dict_list = get_effects_dict(data, SUPPORTED_VOICE_EFFECTS, n_slider_ticks, zero_idx=7)
+    robot_effects_dict_list = get_effects_dict(data, SUPPORTED_ROBOT_EFFECTS, n_slider_ticks)
 
-    def normalize_value(effect_name, value, zero_idx=0):
-        assert type(value) == int or type(value) == float
-        assert value >= 0
-        assert value < N_SLIDER_TICKS, f"Effect {effect_name} must be < {N_SLIDER_TICKS}"
-        n = (N_SLIDER_TICKS - 1)
-        return (value / n) - (zero_idx / n)
-
-    def get_slider_value(effect_name, value, zero_idx=0):
-        if effect_name in effect_ticks:
-            return effect_ticks[effect_name][value]
-        else:
-            return normalize_value(effect_name, value, zero_idx)
-
-
-    effects = {}
-    for effect_name in ["pitch", "tremolo", "griffin", "flanger", "speed"]:
-        assert effect_name in data, f"Effect {effect_name} not found in data"
-        value = data[effect_name]
-        if type(value) == str:
-            value = eval(value)
-
-        zero_idx = 0 if effect_name != "speed" else 7
-        if type(value) == list:
-            value = [get_slider_value(effect_name, v, zero_idx) for v in value]
-        elif type(value) == int or type(value) == float:
-            value = [get_slider_value(effect_name, value, zero_idx)]
-        else:
-            raise ValueError(f"Effect {effect_name} has invalid value {value}")
-        effects[effect_name] = value
-    print(effects)
+    print(voice_effects_dict_list)
+    print(robot_effects_dict_list)
 
     with tempfile.TemporaryDirectory() as out_dir:
         key = 'tmp.wav'
@@ -249,14 +301,14 @@ def generate():
         stn_tst = get_text(text, hps)
         for i in tqdm(range(speaker_embeddings.shape[0])):
             speaker_embedding = speaker_embeddings[i]
-            fx_factors = {k: v[i] for k, v in effects.items()}
+            voice_effects = get_current_effect_values(voice_effects_dict_list, i)
+            robot_effects = get_current_effect_values(robot_effects_dict_list, i)
 
             spk_emb = torch.from_numpy(speaker_embedding.astype(np.float32))[None]
 
             tmp_wav_path = os.path.join(out_dir, bname + '_' + str(i) + '.wav')
 
-            # stn_tst = get_text(text, hps, get_param(data['letter_switch'], i))
-
+            # TTS
             with torch.no_grad():
                 x_tst = stn_tst.unsqueeze(0)
                 x_tst_lengths = torch.LongTensor([stn_tst.size(0)])
@@ -273,36 +325,211 @@ def generate():
 
             sr = hps.data.sampling_rate
 
+            time_stretch = 1 - voice_effects['speed']
+            pitch_factor = 1 - voice_effects['pitch_shift']
+            pitch_range = 1 - voice_effects['pitch_range']
+
+            print("Time stretch: ", time_stretch)
+            print("Pitch factor: ", pitch_factor)
+            print("Pitch range: ", pitch_range)
+
+            assert pitch_range >= 0
+
+            # Cast to Praat object
+            sound = Sound(audio, sr)
+            pitch = call(sound, "To Pitch", .01, 75, 600)
+            manipulation = call([sound, pitch], "To Manipulation")
+            pitch_values = pitch.selected_array["frequency"]
+
+            idxs = np.where(pitch_values == 0)  # Remove NAs
+            pitch_values = np.delete(pitch_values, idxs)
+            time = np.delete(pitch.xs(), idxs)
+
+            # Change pitch range
+            pitch_values = pitch_values * pitch_factor
+
+            # Scale pitch values
+            full_range = pitch_values.max() - pitch_values.min()
+            half_range = full_range / 2
+
+            # Center all pitch values around 0
+            pitch_rel = pitch_values - pitch_values.min() - half_range
+
+            # Multiply with scalar and put it back to the original pitch height
+            pitch_values = (pitch_rel * pitch_range) + pitch_values.min() + half_range
+
+            pitch_tier = call(manipulation, "Extract pitch tier")
+            # Make sure the pitch Tier is empty
+            call(pitch_tier, "Remove points between", min(pitch.xs()) - 0.001, max(pitch.xs()) + 0.001)
+
+            for i in range(len(pitch_values)):
+                call(pitch_tier, "Add point", time[i], pitch_values[i])
+
+            call([manipulation, pitch_tier], "Replace pitch tier")
+
+            # Apply time stretch
+            duration_tier = call("Create DurationTier", "tmp", 0, sound.xmax - sound.xmin)
+            call([duration_tier], "Add point", 0, time_stretch)
+            call([duration_tier, manipulation], "Replace duration tier")
+
+            # Resynthesize
+            sound = call(manipulation, "Get resynthesis (overlap-add)")
+            call(sound, "Save as WAV file", tmp_wav_path)
+            audio, sr = load(tmp_wav_path)
+
             additional_parameters = {
                 'pitch_semitones': 5,
                 'pitch_mirror': True,  # default mirror
                 'griffin_iters': 0,  # highest compression
-                'flanger_delay': 1,
-                'flanger_depth': 10,
-                'flanger_frequency': 5,
             }
 
-            #fx_factors['pitch'] = 1
+            if robot_effects['flanger_type'] == 1:
+                additional_parameters = {
+                    **additional_parameters,
+                    'flanger_delay': 1,
+                    'flanger_depth': 10,
+                    'flanger_frequency': 5,
+                }
+            elif robot_effects['flanger_type'] == 2:
+                additional_parameters = {
+                    **additional_parameters,
+                    'flanger_delay': 0,
+                    'flanger_depth': 50,
+                    'flanger_frequency': 0,
+                }
+            elif robot_effects['flanger_type'] == 3:
+                additional_parameters = {
+                    **additional_parameters,
+                    'flanger_delay': 20,
+                    'flanger_depth': 20,
+                    'flanger_frequency': 5,
+                }
+            elif robot_effects['flanger_type'] == 4:
+                additional_parameters = {
+                    **additional_parameters,
+                    'flanger_delay': 1,
+                    'flanger_depth': 10,
+                    'flanger_frequency': 25,
+                }
+            elif robot_effects['flanger_type'] == 5:
+                additional_parameters = {
+                    **additional_parameters,
+                    'flanger_delay': 10,
+                    'flanger_depth': 0,
+                    'flanger_frequency': 0,
+                }
 
-            timestretch = 1 - fx_factors['speed']
+            if robot_effects['vocoder_type'] == 1:
+                additional_parameters = {
+                    **additional_parameters,
+                    # Vocoder settings
+                    'harmonics': 1.0,
+                    'esserintensity': 0.0,
+                    'chorus': 0.0,  # On or off, large effect
+                    'enveloperelease': 0.0,
+                    'vocoderband00': 0.0,
+                    'vocoderband01': 0.0,
+                    'vocoderband02': 0.0,
+                    'vocoderband03': 0.0,
+                    'vocoderband04': 0.0,
+                    'vocoderband05': 0.0,
+                    'vocoderband06': 0.0,
+                    'vocoderband07': 0.0,
+                    'vocoderband08': 0.0,
+                    'vocoderband09': 0.0,
+                    'vocoderband10': 0.0,
+                    'vocoder_carrier_frequency': 60.0  #
+                }
+            elif robot_effects['vocoder_type'] == 2:
+                additional_parameters = {
+                    **additional_parameters,
+                    # Vocoder settings
+                    'harmonics': 1.0,
+                    'esserintensity': 0.0,
+                    'chorus': 0.0,  # On or off, large effect
+                    'enveloperelease': 0.0,
+                    'vocoderband00': 0.0,
+                    'vocoderband01': 0.0,
+                    'vocoderband02': 0.0,
+                    'vocoderband03': 0.0,
+                    'vocoderband04': 0.0,
+                    'vocoderband05': 0.0,
+                    'vocoderband06': 0.0,
+                    'vocoderband07': 0.0,
+                    'vocoderband08': 0.0,
+                    'vocoderband09': 0.0,
+                    'vocoderband10': 0.0,
+                    'vocoder_carrier_frequency': 200.0  #
+                }
+            elif robot_effects['vocoder_type'] == 3:
+                additional_parameters = {
+                    **additional_parameters,
+                    # Vocoder settings
+                    'harmonics': 1.0,
+                    'esserintensity': 0.0,
+                    'chorus': 1.0,  # On or off, large effect
+                    'enveloperelease': 0.0,
+                    'vocoderband00': 0.0,
+                    'vocoderband01': 0.0,
+                    'vocoderband02': 0.0,
+                    'vocoderband03': 0.0,
+                    'vocoderband04': 0.0,
+                    'vocoderband05': 0.0,
+                    'vocoderband06': 0.0,
+                    'vocoderband07': 0.0,
+                    'vocoderband08': 0.0,
+                    'vocoderband09': 0.0,
+                    'vocoderband10': 0.0,
+                    'vocoder_carrier_frequency': 60.0  #
+                }
 
-            # Fill in the defaults
+            elif robot_effects['vocoder_type'] == 4:
+                additional_parameters = {
+                    **additional_parameters,
+                    # Vocoder settings
+                    'harmonics': 0.0,
+                    'esserintensity': 1.0,
+                    'chorus': 0.0,  # On or off, large effect
+                    'enveloperelease': 0.0,
+                    'vocoderband00': 0.0,
+                    'vocoderband01': 0.0,
+                    'vocoderband02': 0.0,
+                    'vocoderband03': 0.0,
+                    'vocoderband04': 0.0,
+                    'vocoderband05': 0.0,
+                    'vocoderband06': 0.0,
+                    'vocoderband07': 0.0,
+                    'vocoderband08': 0.0,
+                    'vocoderband09': 0.0,
+                    'vocoderband10': 0.0,
+                    'vocoder_carrier_frequency': 60.0  #
+                }
+            elif robot_effects['vocoder_type'] == 5:
+                additional_parameters = {
+                    **additional_parameters,
+                    # Vocoder settings
+                    'harmonics': 1.0,
+                    'esserintensity': 0.0,
+                    'chorus': 0.0,  # On or off, large effect
+                    'enveloperelease': 1.0,
+                    'vocoderband00': 0.0,
+                    'vocoderband01': 0.0,
+                    'vocoderband02': 0.0,
+                    'vocoderband03': 0.0,
+                    'vocoderband04': 0.0,
+                    'vocoderband05': 0.0,
+                    'vocoderband06': 0.0,
+                    'vocoderband07': 0.0,
+                    'vocoderband08': 0.0,
+                    'vocoderband09': 0.0,
+                    'vocoderband10': 0.0,
+                    'vocoder_carrier_frequency': 60.0  #
+                }
 
-            # Change duration
-            if timestretch != 1:
-                sound = Sound(audio, sr)
-                manipulation = call(sound, "To Manipulation", 0.01, 75, 600)
-                duration_tier = call("Create DurationTier", "tmp", 0, sound.xmax - sound.xmin)
-                call([duration_tier], "Add point", 0, timestretch)
-                call([duration_tier, manipulation], "Replace duration tier")
-                sound = call(manipulation, "Get resynthesis (overlap-add)")
-                call(sound, "Save as WAV file", tmp_wav_path)
-                audio, sr = load(tmp_wav_path)
-
-            del fx_factors['speed']
-
-            fx = RobotFx(sr)
-            y = fx.process_audio(audio, fx_factors, additional_parameters).astype(np.float32)
+            fx = Fx(sr)
+            del robot_effects['flanger_type']
+            del robot_effects['vocoder_type']
+            y = fx.process_audio(audio, robot_effects, additional_parameters)
 
             # Generate wav
             write(tmp_wav_path, sr, normalize(y))
@@ -317,7 +544,6 @@ def generate():
         with open(output_file, 'rb') as bites:
             response = make_response(send_file(
                 io.BytesIO(bites.read()),
-                attachment_filename=key,
                 mimetype='audio/wav'
             ))
             response.headers.add('Access-Control-Allow-Origin', '*')
@@ -325,6 +551,12 @@ def generate():
             response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
 
             return response
+
+
+# Render index.html
+@app.route('/')
+def index():
+    return render_template('client.html')
 
 
 if __name__ != "__main__":
