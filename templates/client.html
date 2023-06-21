@@ -29,33 +29,43 @@
                     <input type="text" class="form-control" id="text" aria-describedby="text"
                            value="The quick brown fox jumps over the lazy dog.">
                 </div>
-<!--                Dropdown menu -->
-                <div class="form-group">
-                    <label for="flanger_type">Flanger type</label>
-                    <select id="flanger_type">
-                        <option value="0">Effect 1</option>
-                        <option value="1">Effect 2</option>
-                        <option value="2">Effect 3</option>
-                        <option value="3">Effect 4</option>
-                        <option value="4">Effect 5</option>
-                    </select>
-                </div>
-<!--                Dropdown menu -->
-                <div class="form-group">
-                    <label for="algorithm_name">Algorithm name</label>
-                    <select id="algorithm_name">
-                        <option value="CCA">CCA</option>
-                        <option value="PCA">PCA</option>
-                    </select>
+                <div class="row">
+                    <div class="form-group col-4">
+                        <label for="flanger_type">Flanger type</label>
+                        <select class="form-control"  id="flanger_type">
+                            <option value="0">Effect 1</option>
+                            <option value="1">Effect 2</option>
+                            <option value="2">Effect 3</option>
+                            <option value="3">Effect 4</option>
+                            <option value="4">Effect 5</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-4">
+                        <label for="vocoder_type">Vocoder type</label>
+                        <select class="form-control" id="vocoder_type">
+                            <option value="0">Effect 1</option>
+                            <option value="1">Effect 2</option>
+                            <option value="2">Effect 3</option>
+                            <option value="3">Effect 4</option>
+                            <option value="4">Effect 5</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-4">
+                        <label for="algorithm_name">Algorithm name</label>
+                        <select class="form-control"  id="algorithm_name">
+                            <option value="CCA">CCA</option>
+                            <option value="PCA">PCA</option>
+                        </select>
+                    </div>
                 </div>
 
-<!--                <div class="form-group">-->
-<!--                    <label for="server">Server</label>-->
-<!--                    <select id="server">-->
-<!--                        <option value="">New</option>-->
-<!--                        <option value="http://ec2-3-73-100-131.eu-central-1.compute.amazonaws.com:5000">Old</option>-->
-<!--                    </select>-->
-<!--                </div>-->
+                <!--                <div class="form-group">-->
+                <!--                    <label for="server">Server</label>-->
+                <!--                    <select id="server">-->
+                <!--                        <option value="">New</option>-->
+                <!--                        <option value="http://ec2-3-73-100-131.eu-central-1.compute.amazonaws.com:5000">Old</option>-->
+                <!--                    </select>-->
+                <!--                </div>-->
             </form>
         </div>
         <div class="col-sm">
@@ -93,7 +103,7 @@
         out += '<small class="form-text text-muted">' + annotation + '</small>';
         out += '<div class="row">';
         if (disabled) {
-            disabled= 'disabled';
+            disabled = 'disabled';
         } else {
             disabled = '';
         }
@@ -234,6 +244,14 @@
         },
         'Time shift': {
             'key': 'timeshift',
+            'value': 0,
+            'min': 0,
+            'max': N_STEPS - 1,
+            'annotation': ''
+        },
+
+        'Vocoder': {
+            'key': 'vocoder',
             'value': 0,
             'min': 0,
             'max': N_STEPS - 1,
