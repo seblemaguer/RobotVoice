@@ -1,0 +1,6 @@
+services:
+  web:
+    build: .
+    command: gunicorn server:app --worker-tmp-dir /dev/shm --workers=6 -b :5000 -t 600 --max-requests 30
+    ports:
+      - "5000:5000"
