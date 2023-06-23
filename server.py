@@ -172,21 +172,21 @@ ROBOT_EFFECT_TICKS = {
         45,  # max
     ],
     'flanger_type': [
-        1, 2, 3, 4, 5, 6, 7, 8
+        1, 2, 3, 4, 5
     ],
     'vocoder': [
         0,  # off
-        0.12, 0.24,
-        0.35,  # slightly on
-        0.40, 0.45, 0.50,
-        0.55,  # somewhat on
-        0.61, 0.68, 0.75,
-        0.81,  # on
-        0.86, 0.91, 0.95,
-        1.00,  # max
+        0.03, 0.06,
+        0.08,  # slightly on
+        0.10, 0.12, 0.14,
+        0.15,  # somewhat on
+        0.18, 0.21, 0.24,
+        0.25,  # on
+        0.28, 0.31, 0.34,
+        0.35,  # max
     ],
     'vocoder_type': [
-        1, 2, 3, 4, 5, 6, 7, 8
+        1, 2, 3, 4, 5
     ],
 
 }
@@ -348,7 +348,7 @@ def generate():
             # Change pitch range
             pitch_values = pitch_values * pitch_factor
 
-            # Scale pitch values
+            # Scale pitc<h values
             full_range = pitch_values.max() - pitch_values.min()
             half_range = full_range / 2
 
@@ -381,6 +381,23 @@ def generate():
                 'pitch_semitones': 5,
                 'pitch_mirror': True,  # default mirror
                 'griffin_iters': 0,  # highest compression
+
+                # Vocoder settings
+                'harmonics': 1.0,
+                'esserintensity': 0.0,
+                'chorus': 0.0,  # On or off, large effect
+                'enveloperelease': 0.0,
+                'vocoderband00': 0.0,
+                'vocoderband01': 0.0,
+                'vocoderband02': 0.0,
+                'vocoderband03': 0.0,
+                'vocoderband04': 0.0,
+                'vocoderband05': 0.0,
+                'vocoderband06': 0.0,
+                'vocoderband07': 0.0,
+                'vocoderband08': 0.0,
+                'vocoderband09': 0.0,
+                'vocoderband10': 0.0,
             }
 
             if robot_effects['flanger_type'] == 1:
@@ -422,108 +439,28 @@ def generate():
             if robot_effects['vocoder_type'] == 1:
                 additional_parameters = {
                     **additional_parameters,
-                    # Vocoder settings
-                    'harmonics': 1.0,
-                    'esserintensity': 0.0,
-                    'chorus': 0.0,  # On or off, large effect
-                    'enveloperelease': 0.0,
-                    'vocoderband00': 0.0,
-                    'vocoderband01': 0.0,
-                    'vocoderband02': 0.0,
-                    'vocoderband03': 0.0,
-                    'vocoderband04': 0.0,
-                    'vocoderband05': 0.0,
-                    'vocoderband06': 0.0,
-                    'vocoderband07': 0.0,
-                    'vocoderband08': 0.0,
-                    'vocoderband09': 0.0,
-                    'vocoderband10': 0.0,
-                    'vocoder_carrier_frequency': 60.0  #
+                    'vocoder_carrier_frequency': 10.0  #
                 }
             elif robot_effects['vocoder_type'] == 2:
                 additional_parameters = {
                     **additional_parameters,
-                    # Vocoder settings
-                    'harmonics': 1.0,
-                    'esserintensity': 0.0,
-                    'chorus': 0.0,  # On or off, large effect
-                    'enveloperelease': 0.0,
-                    'vocoderband00': 0.0,
-                    'vocoderband01': 0.0,
-                    'vocoderband02': 0.0,
-                    'vocoderband03': 0.0,
-                    'vocoderband04': 0.0,
-                    'vocoderband05': 0.0,
-                    'vocoderband06': 0.0,
-                    'vocoderband07': 0.0,
-                    'vocoderband08': 0.0,
-                    'vocoderband09': 0.0,
-                    'vocoderband10': 0.0,
-                    'vocoder_carrier_frequency': 200.0  #
+                    'vocoder_carrier_frequency': 30.0  #
                 }
             elif robot_effects['vocoder_type'] == 3:
                 additional_parameters = {
                     **additional_parameters,
-                    # Vocoder settings
-                    'harmonics': 1.0,
-                    'esserintensity': 0.0,
-                    'chorus': 1.0,  # On or off, large effect
-                    'enveloperelease': 0.0,
-                    'vocoderband00': 0.0,
-                    'vocoderband01': 0.0,
-                    'vocoderband02': 0.0,
-                    'vocoderband03': 0.0,
-                    'vocoderband04': 0.0,
-                    'vocoderband05': 0.0,
-                    'vocoderband06': 0.0,
-                    'vocoderband07': 0.0,
-                    'vocoderband08': 0.0,
-                    'vocoderband09': 0.0,
-                    'vocoderband10': 0.0,
                     'vocoder_carrier_frequency': 60.0  #
                 }
 
             elif robot_effects['vocoder_type'] == 4:
                 additional_parameters = {
                     **additional_parameters,
-                    # Vocoder settings
-                    'harmonics': 0.0,
-                    'esserintensity': 1.0,
-                    'chorus': 0.0,  # On or off, large effect
-                    'enveloperelease': 0.0,
-                    'vocoderband00': 0.0,
-                    'vocoderband01': 0.0,
-                    'vocoderband02': 0.0,
-                    'vocoderband03': 0.0,
-                    'vocoderband04': 0.0,
-                    'vocoderband05': 0.0,
-                    'vocoderband06': 0.0,
-                    'vocoderband07': 0.0,
-                    'vocoderband08': 0.0,
-                    'vocoderband09': 0.0,
-                    'vocoderband10': 0.0,
-                    'vocoder_carrier_frequency': 60.0  #
+                    'vocoder_carrier_frequency': 90.0  #
                 }
             elif robot_effects['vocoder_type'] == 5:
                 additional_parameters = {
                     **additional_parameters,
-                    # Vocoder settings
-                    'harmonics': 1.0,
-                    'esserintensity': 0.0,
-                    'chorus': 0.0,  # On or off, large effect
-                    'enveloperelease': 1.0,
-                    'vocoderband00': 0.0,
-                    'vocoderband01': 0.0,
-                    'vocoderband02': 0.0,
-                    'vocoderband03': 0.0,
-                    'vocoderband04': 0.0,
-                    'vocoderband05': 0.0,
-                    'vocoderband06': 0.0,
-                    'vocoderband07': 0.0,
-                    'vocoderband08': 0.0,
-                    'vocoderband09': 0.0,
-                    'vocoderband10': 0.0,
-                    'vocoder_carrier_frequency': 60.0  #
+                    'vocoder_carrier_frequency': 120.0  #
                 }
 
             fx = Fx(sr)
