@@ -218,8 +218,6 @@ def get_effects_dict(data, supported_effects, n_slider_ticks, zero_idx=0):
         if type(value) == str:
             value = eval(value)
 
-        if effect_name == 'flanger_type':
-            print(f"Effect {effect_name} has value {value}")
 
         if type(value) == list:
             value = [get_slider_value(effect_name, v, zero_idx, n_slider_ticks) for v in value]
@@ -228,8 +226,6 @@ def get_effects_dict(data, supported_effects, n_slider_ticks, zero_idx=0):
         else:
             raise ValueError(f"Effect {effect_name} has invalid value {value}")
 
-        if effect_name == 'flanger_type':
-            print(f"Effect {effect_name} has value {value}")
         effects[effect_name] = value
     return effects
 
@@ -270,16 +266,11 @@ def generate():
         assert "algorithm_name" in data
         assert "number" in data
 
-    print(data)
-
     assert "n_slider_ticks" in data
     n_slider_ticks = int(data["n_slider_ticks"])
 
     voice_effects_dict_list = get_effects_dict(data, SUPPORTED_VOICE_EFFECTS, n_slider_ticks, zero_idx=7)
     robot_effects_dict_list = get_effects_dict(data, SUPPORTED_ROBOT_EFFECTS, n_slider_ticks)
-
-    print(voice_effects_dict_list)
-    print(robot_effects_dict_list)
 
     with tempfile.TemporaryDirectory() as out_dir:
         key = 'tmp.wav'
@@ -328,10 +319,6 @@ def generate():
             time_stretch = 1 - voice_effects['speed']
             pitch_factor = 1 - voice_effects['pitch_shift']
             pitch_range = 1 - voice_effects['pitch_range']
-
-            print("Time stretch: ", time_stretch)
-            print("Pitch factor: ", pitch_factor)
-            print("Pitch range: ", pitch_range)
 
             assert pitch_range >= 0
 
