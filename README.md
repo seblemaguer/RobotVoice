@@ -12,7 +12,8 @@ You should now be able to test it: http://localhost:5000/
 ## Run synthesis server on a server
 Provision at least a m5.xlarge instance on AWS. Install Docker and Docker Compose. Then run:
 ```shell
-git clone 
+git clone https://github.com/polvanrijn/RobotVoice
+cd RobotVoice
 docker-compose up -d --build
 ```
 
