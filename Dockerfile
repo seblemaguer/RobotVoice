@@ -48,6 +48,8 @@ WORKDIR /RobotVoice
 COPY requirements.txt /RobotVoice/
 RUN pip3.10 install -r requirements.txt
 
+COPY . /RobotVoice/
+
 
 # Run the server on deployment
 #gunicorn server:app --worker-tmp-dir /dev/shm --workers=6 -b :5000 -t 600 --max-requests 30
