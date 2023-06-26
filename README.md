@@ -17,6 +17,14 @@ cd RobotVoice
 docker-compose up -d --build
 ```
 
+If you don't want to use Docker, you can also install the dependencies manually:
+```shell
+git clone https://github.com/polvanrijn/RobotVoice
+cd RobotVoice
+sh setup.sh
+gunicorn server:app --worker-tmp-dir /dev/shm --workers=6 -b :5000 -t 600 --max-requests 30 # serve on port 5000
+```
+
 ## Scraping for robots
 Setup a virtual environment and install the dependencies:
 ```shell
