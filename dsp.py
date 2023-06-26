@@ -276,8 +276,8 @@ class Fx():
                 tmp_signal = np.concatenate((tmp_signal, t))
         if len(rest) > 0:
             tmp_signal = np.concatenate((tmp_signal, rest))
-
-        stereo = np.stack((tmp_signal, input_signal), 0)
+        sig_len = min(len(tmp_signal), len(input_signal))
+        stereo = np.stack((tmp_signal[:sig_len], input_signal[:sig_len]), 0)
 
         effected = self.vst_vocoder(stereo, sr)
         y = np.float32(effected)
