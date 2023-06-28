@@ -216,7 +216,7 @@ def apply_voice_effects(audio, sr, voice_effects):
         return load(tmp_wav_path)
 
 
-def update_parameters(robot_effects, additional_parameters):
+def update_parameters(robot_effects):
     additional_parameters = {
         'pitch_semitones': 5,
         'pitch_mirror': True,  # default mirror
@@ -339,7 +339,7 @@ def synthesize(output_file, data):
             audio, sr = tts(net_g, hps, stn_tst, spk_emb)
             audio, sr = apply_voice_effects(audio, sr, voice_effects)
 
-            robot_effects, additional_parameters = update_parameters(robot_effects, additional_parameters)
+            robot_effects, additional_parameters = update_parameters(robot_effects)
 
             audio = Fx(sr).process_audio(audio, robot_effects, additional_parameters)
             audio = normalize(audio)
