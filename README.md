@@ -22,7 +22,8 @@ If you don't want to use Docker, you can also install the dependencies manually:
 git clone https://github.com/polvanrijn/RobotVoice
 cd RobotVoice
 sh setup.sh
-gunicorn server:app --worker-tmp-dir /dev/shm --workers=6 -b :5000 -t 600 --max-requests 30 # serve on port 5000
+# Set the port and number of workers based on the number of CPUs, set max-requests = 1 to avoid memory leak
+gunicorn server:app --worker-tmp-dir /dev/shm --workers=17 -b :5001 -t 600 --max-requests 1
 ```
 
 ## Scraping for robots
