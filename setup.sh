@@ -11,7 +11,6 @@ pip install gdown
 gdown 11aHOlhnxzjpdWDpsz1vFDCzbeEfoIxru
 
 mv ../setup_vits.py setup.py
-pip install -e .
 
 mv monotonic_align ../monotonic_align
 cd ../monotonic_align
@@ -28,3 +27,7 @@ rm Tal-Vocoder-2_64_linux-2.2.1.zip
 
 cd ..
 pip install -r requirements.txt
+
+cd vits
+pip install -e .
+cd ..
