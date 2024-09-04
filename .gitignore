@@ -1,1 +1,9 @@
 CNNB/*
+
+# Python
+__pycache__/
+
+# Installed directories
+vits
+monotonic_align
+VSTs
