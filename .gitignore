@@ -2,6 +2,7 @@ CNNB/*
 
 # Python
 __pycache__/
+*.egg-info/
 
 # Installed directories
 vits

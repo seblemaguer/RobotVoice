@@ -11,33 +11,6 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 pip install gdown
 pip install Cython
 
-# Install VITS
-echo -e "\n\n"
-echo "####################################################################"
-echo "## Installing VITS"
-echo "####################################################################"
-(
-    rm -rfv vits
-    git clone https://github.com/jaywalnut310/vits
-    cd vits
-    cp ../setup_vits.py setup.py # NOTE: add setup to be install VITS as a package
-    gdown 11aHOlhnxzjpdWDpsz1vFDCzbeEfoIxru
-    pip install -e .
-)
-
-# Install monotonic align
-echo -e "\n\n"
-echo "####################################################################"
-echo "## Installing monotonic align"
-echo "####################################################################"
-(
-    rm -rfv monotonic_align/
-    mv vits/monotonic_align monotonic_align
-    cd monotonic_align
-    mkdir monotonic_align
-    python setup.py build_ext --inplace
-)
-
 # Install VST Vocoder plugin
 echo -e "\n\n"
 echo "####################################################################"

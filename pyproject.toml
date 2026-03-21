@@ -1,0 +1,56 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+  "setuptools>=61",
+]
+
+[project]
+name = "refactored-robotvoice"
+version = "0.0.1"
+description='Refactored version of the RobotVoice to be more python/command friendly'
+readme = {file="README.md", content-type = "text/markdown"}
+authors = [
+  {name="Pol van Rijn"}
+]
+requires-python = ">=3.10"
+classifiers = [
+]
+dependencies = [
+  "flask",
+  "gunicorn",
+  "librosa",
+  "numpy",
+  "pedalboard",
+  "praat-parselmouth",
+  "resampy",
+  "scipy",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pre-commit",
+  "black",
+  "flake8",
+  "basedpyright"
+]
+
+[tool.black]
+line-length = 120
+target-version = ['py312']
+include = '\.pyi?$'
+exclude = '''
+/(
+  \.toml
+  |\.sh
+  |\.git
+  |\.ini
+  |Dockerfile
+  |Jenkinfile
+)/
+'''
+
+[tool.flake8]
+max-line-length = 120
+
+[tool.basedpyright]
+typeCheckingMode = "standard"
