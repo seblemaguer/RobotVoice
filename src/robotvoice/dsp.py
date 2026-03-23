@@ -1,7 +1,8 @@
 import numpy as np
+import numpy.typing as npt
 
 
-def normalize(audio: np.array, rms_level=-6) -> np.array:
+def normalize(audio: npt.NDArray, rms_level: int = -8) -> npt.NDArray:
     """
     Normalize the signal given a certain technique (peak or rms).
     Args:
@@ -16,8 +17,7 @@ def normalize(audio: np.array, rms_level=-6) -> np.array:
     return audio * a
 
 
-def normalize_value(effect_name: str, value: int | float, zero_idx: int, n_slider_ticks: int) -> float:
-    assert value >= 0
-    assert value < n_slider_ticks, f"Effect {effect_name} must be < {n_slider_ticks}"
-    n = n_slider_ticks - 1
+def normalize_value(value: int | float, zero_idx: int, n_steps: int) -> float:
+    assert value >= 0, f"The value should be positive but is {value}"
+    n = n_steps - 1
     return (value / n) - (zero_idx / n)

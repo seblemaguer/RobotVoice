@@ -1,13 +1,17 @@
+import pathlib
+from typing import Any
 import librosa.effects
 import numpy as np
+import numpy.typing as npt
+
 import math
 from scipy import signal
 from pedalboard import load_plugin
 
 
 class Fx:
-    def __init__(self, sr):
-        self.framerate = sr
+    def __init__(self, sr: int, plugin_path: str | pathlib.Path = "./VSTs/TAL-Vocoder-2.vst3"):
+        self.samplerate = sr
         self.fx_functions = {
             "flanger": self.flanger,
             "distortion": self.ge_distortion,
@@ -20,21 +24,39 @@ class Fx:
             "timeshift": self.timeshift,
             "vocoder": self.vocoder,
         }
-        self.vst_vocoder = load_plugin("./VSTs/TAL-Vocoder-2.vst3")
+        self.vst_vocoder = load_plugin(
+            str(plugin_path.resolve()) if isinstance(plugin_path, pathlib.Path) else plugin_path
+        )
         self.vst_vocoder.inputmode = 1
 
-    def generate_wave_input(self, freq, length, rate=44100, phase=0.0):
-        length = int(length * rate)
-        t = np.arange(length) / float(rate)
+    def process_audio(
+        self, input_data: npt.NDArray, fx_chain: dict[str, Any], additional_parameters: dict | None = None
+    ) -> npt.NDArray:
+        y = input_data
+        for fx, l in fx_chain.items():
+            if l > 0.0:
+                if fx == "timestretch":
+                    y = np.float32(self.fx_functions[fx](y, speed=l))
+                elif fx == "timeshift":
+                    y = np.float32(self.fx_functions[fx](y, shift_ms=l))
+                else:
+                    y = np.float32(
+                        ((1.0 - l) * y + l * self.fx_functions[fx](y, additional_parameters=additional_parameters))
+                    )
+        return y
+
+    def generate_wave_input(self, freq: float, length: float, rate: int = 44100, phase: float = 0.0) -> npt.NDArray:
+        ilength = int(length * rate)
+        t = np.arange(ilength) / float(rate)
         omega = float(freq) * 2 * math.pi
         phase *= 2 * math.pi
         return omega * t + phase
 
-    def sine(self, freq, length, rate=44100, phase=0.0):
+    def sine(self, freq: float, length: float, rate: int = 44100, phase: float = 0.0) -> npt.NDArray:
         data = self.generate_wave_input(freq, length, rate, phase)
         return np.sin(data)
 
-    def feedback_modulated_delay(self, data, modwave, dry, wet):
+    def feedback_modulated_delay(self, data: npt.NDArray, modwave: npt.NDArray, dry: float, wet: float) -> npt.NDArray:
         out = data.copy()
         for i in range(len(data)):
             index = int(i - modwave[i])
@@ -42,22 +64,7 @@ class Fx:
                 out[i] = out[i] * dry + out[index] * wet
         return out
 
-    def flanger(self, data, frequency=1, dry=0.3, wet=0.7, depth=10.0, delay=1.0, additional_parameters=None):
-        if additional_parameters != None:
-            if "flanger_frequency" in additional_parameters.keys():
-                frequency = additional_parameters["flanger_frequency"]
-            if "flanger_depth" in additional_parameters.keys():
-                depth = additional_parameters["flanger_depth"]
-            if "flanger_delay" in additional_parameters.keys():
-                delay = additional_parameters["flanger_delay"]
-        length = float(len(data)) / self.framerate
-        mil = float(self.framerate) / 1000
-        delay *= mil
-        depth *= mil
-        modwave = (self.sine(frequency, length) / 2 + 0.5) * depth + delay
-        return self.feedback_modulated_delay(data, modwave, dry, wet)
-
-    def modulated_delay(self, data, modwave, dry, wet):
+    def modulated_delay(self, data: npt.NDArray, modwave: npt.NDArray, dry: float, wet: float) -> npt.NDArray:
         out = data.copy()
         for i in range(len(data)):
             index = int(i - modwave[i])
@@ -65,22 +72,7 @@ class Fx:
                 out[i] = data[i] * dry + data[index] * wet
         return out
 
-    def chorus(self, data, frequency=2, dry=0.5, wet=0.5, depth=0.9, delay=25.0, additional_parameters=None):
-        if additional_parameters != None:
-            if "chorus_frequency" in additional_parameters.keys():
-                frequency = additional_parameters["chorus_frequency"]
-            if "chorus_depth" in additional_parameters.keys():
-                depth = additional_parameters["chorus_depth"]
-            if "chorus_delay" in additional_parameters.keys():
-                delay = additional_parameters["chorus_delay"]
-        length = float(len(data)) / self.framerate
-        mil = float(self.framerate) / 1000
-        delay *= mil
-        depth *= mil
-        modwave = (self.sine(frequency, length) / 2 + 0.5) * depth + delay
-        return self.modulated_delay(data, modwave, dry, wet)
-
-    def translate(self, input_signal, original_signal):
+    def translate(self, input_signal: npt.NDArray, original_signal: npt.NDArray) -> npt.NDArray:
         # Figure out how 'wide' each range is
         leftMin = np.min(input_signal)
         leftMax = np.max(input_signal)
@@ -96,11 +88,61 @@ class Fx:
         # Convert the 0-1 range into a value in the right range.
         return ret
 
-    def norm_signal(self, input_signal):
+    def norm_signal(self, input_signal: npt.NDArray) -> npt.NDArray:
         output_signal = input_signal / np.max(np.absolute(input_signal))
         return output_signal
 
-    def ge_tremolo(self, input_signal, alpha=1, modfreq=10, additional_parameters=None):
+    def flanger(
+        self,
+        data: npt.NDArray,
+        frequency: float = 1,
+        dry: float = 0.3,
+        wet: float = 0.7,
+        depth: float = 10.0,
+        delay: float = 1.0,
+        additional_parameters: dict | None = None,
+    ) -> npt.NDArray:
+        if additional_parameters != None:
+            if "flanger_frequency" in additional_parameters.keys():
+                frequency = additional_parameters["flanger_frequency"]
+            if "flanger_depth" in additional_parameters.keys():
+                depth = additional_parameters["flanger_depth"]
+            if "flanger_delay" in additional_parameters.keys():
+                delay = additional_parameters["flanger_delay"]
+        length = float(len(data)) / self.samplerate
+        mil = float(self.samplerate) / 1000
+        delay *= mil
+        depth *= mil
+        modwave = (self.sine(frequency, length) / 2 + 0.5) * depth + delay
+        return self.feedback_modulated_delay(data, modwave, dry, wet)
+
+    def chorus(
+        self,
+        data: npt.NDArray,
+        frequency: float = 2,
+        dry: float = 0.5,
+        wet: float = 0.5,
+        depth: float = 0.9,
+        delay: float = 25.0,
+        additional_parameters: dict | None = None,
+    ) -> npt.NDArray:
+        if additional_parameters != None:
+            if "chorus_frequency" in additional_parameters.keys():
+                frequency = additional_parameters["chorus_frequency"]
+            if "chorus_depth" in additional_parameters.keys():
+                depth = additional_parameters["chorus_depth"]
+            if "chorus_delay" in additional_parameters.keys():
+                delay = additional_parameters["chorus_delay"]
+        length = float(len(data)) / self.samplerate
+        mil = float(self.samplerate) / 1000
+        delay *= mil
+        depth *= mil
+        modwave = (self.sine(frequency, length) / 2 + 0.5) * depth + delay
+        return self.modulated_delay(data, modwave, dry, wet)
+
+    def ge_tremolo(
+        self, input_signal: npt.NDArray, alpha: int = 1, modfreq: int = 10, additional_parameters: dict | None = None
+    ) -> npt.NDArray:
         if additional_parameters != None:
             if "tremolo_alpha" in additional_parameters.keys():
                 alpha = additional_parameters["tremolo_alpha"]
@@ -108,11 +150,13 @@ class Fx:
                 modfreq = additional_parameters["tremolo_modfreq"]
         output_signal = np.zeros(len(input_signal))
         for n in range(len(input_signal)):
-            trem = 1 + alpha * np.sin(2 * np.pi * modfreq * n / self.framerate)
+            trem = 1 + alpha * np.sin(2 * np.pi * modfreq * n / self.samplerate)
             output_signal[n] = trem * input_signal[n]
         return output_signal
 
-    def ge_distortion(self, input_signal, alpha=5, additional_parameters=None):
+    def ge_distortion(
+        self, input_signal: npt.NDArray, alpha: int = 5, additional_parameters: dict | None = None
+    ) -> npt.NDArray:
         if additional_parameters != None:
             if "distortion_alpha" in additional_parameters.keys():
                 alpha = additional_parameters["distortion_alpha"]
@@ -121,7 +165,15 @@ class Fx:
         output_signal = self.translate(output_signal, input_signal)
         return output_signal
 
-    def ge_wahwah(self, input_signal, damp=0.49, minf=100.0, maxf=2000.0, wahf=2000.0, additional_parameters=None):
+    def ge_wahwah(
+        self,
+        input_signal: npt.NDArray,
+        damp: float = 0.49,
+        minf: float = 100.0,
+        maxf: float = 2000.0,
+        wahf: float = 2000.0,
+        additional_parameters: dict | None = None,
+    ) -> npt.NDArray:
         if additional_parameters != None:
             if "wahwah_damp" in additional_parameters.keys():
                 damp = additional_parameters["wahwah_damp"]
@@ -134,12 +186,12 @@ class Fx:
         output_signal = np.zeros(len(input_signal))
         outh = np.zeros(len(input_signal))
         outl = np.zeros(len(input_signal))
-        delta = wahf / self.framerate
+        delta = wahf / self.samplerate
         centerf = np.concatenate((np.arange(minf, maxf, delta), np.arange(maxf, minf, -delta)))
         while len(centerf) < len(input_signal):
             centerf = np.concatenate((centerf, centerf))
         centerf = centerf[: len(input_signal)]
-        f1 = 2 * np.sin(np.pi * centerf[0] / self.framerate)
+        f1 = 2 * np.sin(np.pi * centerf[0] / self.samplerate)
         outh[0] = input_signal[0]
         output_signal[0] = f1 * outh[0]
         outl[0] = f1 * output_signal[0]
@@ -147,27 +199,35 @@ class Fx:
             outh[n] = input_signal[n] - outl[n - 1] - 2 * damp * output_signal[n - 1]
             output_signal[n] = f1 * outh[n] + output_signal[n - 1]
             outl[n] = f1 * output_signal[n] + outl[n - 1]
-            f1 = 2 * np.sin(np.pi * centerf[n] / self.framerate)
+            f1 = 2 * np.sin(np.pi * centerf[n] / self.samplerate)
         return output_signal
 
-    def pitch(self, input_signal, semitones=12.0, mirror=False, additional_parameters=None):
+    def pitch(
+        self,
+        input_signal: npt.NDArray,
+        semitones: float = 12.0,
+        mirror: bool = False,
+        additional_parameters: dict | None = None,
+    ) -> npt.NDArray:
         if additional_parameters != None:
             if "pitch_semitones" in additional_parameters.keys():
                 semitones = additional_parameters["pitch_semitones"]
             if "pitch_mirror" in additional_parameters.keys():
                 mirror = additional_parameters["pitch_mirror"]
         y = librosa.effects.pitch_shift(
-            input_signal, sr=self.framerate, n_steps=semitones, bins_per_octave=12, res_type="kaiser_best"
+            input_signal, sr=self.samplerate, n_steps=semitones, bins_per_octave=12, res_type="kaiser_best"
         )
 
         if mirror:
             z = librosa.effects.pitch_shift(
-                input_signal, sr=self.framerate, n_steps=-semitones, bins_per_octave=12, res_type="kaiser_best"
+                input_signal, sr=self.samplerate, n_steps=-semitones, bins_per_octave=12, res_type="kaiser_best"
             )
             y = (y + z) / 2.0
         return y
 
-    def griffin(self, input_signal, iters=0, additional_parameters=None):
+    def griffin(
+        self, input_signal: npt.NDArray, iters: int = 0, additional_parameters: dict | None = None
+    ) -> npt.NDArray:
         if additional_parameters != None:
             if "griffin_iters" in additional_parameters.keys():
                 iters = additional_parameters["griffin_iters"]
@@ -178,19 +238,19 @@ class Fx:
         audio_signal = np.append(audio_signal, pad)
         return audio_signal
 
-    def timestretch(self, input_signal, speed=1.0):
+    def timestretch(self, input_signal: npt.NDArray, speed: float = 1.0) -> npt.NDArray:
         audio_signal = librosa.effects.time_stretch(input_signal, rate=speed)
         return audio_signal
 
-    def timeshift(self, input_signal, shift_ms=10):
-        padding_signal_length = (self.framerate / 1000) * shift_ms
+    def timeshift(self, input_signal: npt.NDArray, shift_ms: int = 10) -> npt.NDArray:
+        padding_signal_length = (self.samplerate / 1000) * shift_ms
         padding_signal = np.zeros(int(padding_signal_length), dtype=np.float32)
         s1 = np.concatenate((padding_signal, input_signal), axis=0)
         s2 = np.concatenate((input_signal, padding_signal), axis=0)
         out = np.add(s1, s2) / 2.0
         return out
 
-    def vocoder(self, input_signal, additional_parameters=None):
+    def vocoder(self, input_signal: npt.NDArray, additional_parameters: dict | None = None) -> npt.NDArray:
         # if "volume" in additional_parameters.keys():
         #     self.vst_vocoder.volume = additional_parameters["volume"]
         # if "noisevolume" in additional_parameters.keys():
@@ -258,7 +318,7 @@ class Fx:
         else:
             cf = 60
 
-        sr = int(self.framerate)
+        sr = int(self.samplerate)
         t = np.linspace(0, 1, sr, endpoint=False)
         t = signal.square(2 * np.pi * int(cf) * t) * 0.2
 
@@ -285,17 +345,3 @@ class Fx:
         y = np.float32(effected)
         out = np.add(y[0], y[1]) / 2.0
         return out
-
-    def process_audio(self, input_data, fx_chain, additional_parameters=None):
-        y = input_data
-        for fx, l in fx_chain.items():
-            if l > 0.0:
-                if fx == "timestretch":
-                    y = np.float32(self.fx_functions[fx](y, speed=l))
-                elif fx == "timeshift":
-                    y = np.float32(self.fx_functions[fx](y, shift_ms=l))
-                else:
-                    y = np.float32(
-                        ((1.0 - l) * y + l * self.fx_functions[fx](y, additional_parameters=additional_parameters))
-                    )
-        return y
