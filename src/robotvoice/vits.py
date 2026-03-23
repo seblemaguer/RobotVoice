@@ -12,7 +12,6 @@ class VITS:
     def synth(self, text: str) -> tuple[np.array, int]:
 
         r = requests.post(self._url, json={"text": text})
-        print(r.headers['content-type'])
         if r.headers['content-type'] == "text/html; charset=utf-8":
             raise Exception(r.content)
         elif r.headers['content-type'] !=  "audio/wav":

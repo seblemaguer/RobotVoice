@@ -10,18 +10,18 @@ ROBOT_EFFECT_TICKS = {
     "vocoder": [0, 0.03, 0.06, 0.08, 0.10, 0.12, 0.14, 0.15, 0.18, 0.21, 0.24, 0.25, 0.28, 0.31, 0.34, 0.35],
     "vocoder_type": [1, 2, 3, 4, 5],
 }
-
+N_STEPS = len(ROBOT_EFFECT_TICKS["pitch"])
 SUPPORTED_ROBOT_EFFECTS = list(ROBOT_EFFECT_TICKS.keys())
 
 
-def get_slider_value(effect_name, value, zero_idx, n_slider_ticks):
+def get_slider_value(effect_name, value, zero_idx):
     if effect_name in ROBOT_EFFECT_TICKS:
         return ROBOT_EFFECT_TICKS[effect_name][value]
     else:
-        return normalize_value(effect_name, value, zero_idx, n_slider_ticks)
+        return normalize_value(value, zero_idx, N_STEPS)
 
 
-def get_effects_dict(data, supported_effects, n_slider_ticks, zero_idx=0):
+def get_effects_dict(data, supported_effects, zero_idx=0):
     effects = {}
     for effect_name in supported_effects:
         assert effect_name in data, f"Effect {effect_name} not found in data"
@@ -31,9 +31,9 @@ def get_effects_dict(data, supported_effects, n_slider_ticks, zero_idx=0):
             value = eval(value)
 
         if type(value) == list:
-            value = [get_slider_value(effect_name, v, zero_idx, n_slider_ticks) for v in value]
+            value = [get_slider_value(effect_name, v, zero_idx) for v in value]
         elif type(value) == int or type(value) == float:
-            value = [get_slider_value(effect_name, value, zero_idx, n_slider_ticks)]
+            value = [get_slider_value(effect_name, value, zero_idx)]
         else:
             raise ValueError(f"Effect {effect_name} has invalid value {value}")
 
