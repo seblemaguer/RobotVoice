@@ -15,14 +15,30 @@ class PostProcessor:
                 if plugin_path.suffix != ".vst3":
                     raise Exception(f"the path {plugin_path} is not a valid VST3 plugin")
 
-                self._plugins[plugin_path.stem] = load_plugin(str(plugin_path.resolve()))
+                plugin = load_plugin(str(plugin_path.resolve()))
+                if plugin.is_effect:
+                    self._plugins[plugin_path.stem] = plugin
+                    self._logger.debug(f"Loading {plugin_path.resolve()} done")
+                else:
+                    self._logger.warning(f"{plugin_path.resolve()} is not an effect so it is ignored")
+
         else:
             if vst_plugin_paths.suffix == ".vst3":
-                self._plugins[vst_plugin_paths.stem] = load_plugin(str(vst_plugin_paths.resolve()))
+                plugin = load_plugin(str(vst_plugin_paths.resolve()))
+                if plugin.is_effect:
+                    self._plugins[vst_plugin_paths.stem] = plugin
+                    self._logger.debug(f"Loading {vst_plugin_paths.resolve()} done")
+                else:
+                    self._logger.warning(f"{vst_plugin_paths.resolve()} is not an effect so it is ignored")
             else:
 
                 for plugin_path in vst_plugin_paths.glob("*.vst3"):
-                    self._plugins[plugin_path.stem] = load_plugin(str(plugin_path.resolve()))
+                    plugin = load_plugin(str(plugin_path.resolve()))
+                    if plugin.is_effect:
+                        self._plugins[plugin_path.stem] = plugin
+                        self._logger.debug(f"Loading {plugin_path.resolve()} done")
+                    else:
+                        self._logger.warning(f"{plugin_path.resolve()} is not an effect so it is ignored")
 
                 if len(self._plugins) == 0:
                     raise Exception(f"Didn't find VST3 plugins in {vst_plugin_paths}")
@@ -58,14 +74,18 @@ class PostProcessor:
 
     def list_info_plugin(
         self, plugin_name: str
-    ) -> dict[str, tuple[float, float, float, float, float] | tuple[bool, bool]]:
+    ) -> dict[str, tuple[float, float, float, float, float, str] | tuple[bool, bool, str]]:
         parameters = dict()
 
         # Get plugin
         cur_plugin = self._plugins[plugin_name]
         for p_name, p_info in cur_plugin.parameters.items():
             if p_info.type == bool:
-                parameters[p_name] = (p_info.default_raw_value, p_info.raw_value)
+                parameters[p_name] = (
+                    p_info.default_raw_value,
+                    p_info.raw_value,
+                    p_info.name if p_info.label is None else f"{p_info.name} [{p_info.label}]",
+                )
             elif p_info.type == float:
                 if (p_info.min_value == -np.inf) or (p_info.max_value == np.inf):
                     self._logger.warning(
@@ -78,6 +98,7 @@ class PostProcessor:
                         p_info.max_value,
                         p_info.default_raw_value,
                         p_info.raw_value,
+                        p_info.name if p_info.label is None else f"{p_info.name} [{p_info.label}]",
                     )
             elif p_info.type == str:
                 self._logger.warning(f"The type of the parameter {p_name} is str which is ignored for now")
@@ -86,7 +107,9 @@ class PostProcessor:
 
         return parameters
 
-    def get_effects(self) -> dict[str, dict[str, tuple[float, float, float, float, float] | tuple[bool, bool]]]:
+    def get_effects(
+        self,
+    ) -> dict[str, dict[str, tuple[float, float, float, float, float, str] | tuple[bool, bool, str]]]:
         dict_conf = {}
         list_plugins = self.list_available_plugins()
         for plugin_name in list_plugins:
@@ -100,6 +123,6 @@ class PostProcessor:
         board = Pedalboard([self._plugins[cur_plugin] for cur_plugin in plugins])
 
         # Run the audio through this pedalboard!
-        effected = board(audio, sr)
+        effected = board(audio, sr, reset=False)
 
         return effected

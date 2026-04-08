@@ -7,8 +7,9 @@ from scipy.io import wavfile
 from flask import Flask, Response, make_response, send_file, request, jsonify
 from flask_cors import CORS
 
-from robotvoice.postprocess import PostProcessor
 from robotvoice import synth
+from robotvoice.postprocess import PostProcessor
+from robotvoice.dsp import normalize
 
 # Prepare server app
 app = Flask(__name__)
@@ -97,16 +98,21 @@ def synthesize() -> Response:
 
     text_to_synth = str(request_data["text"])
 
-    parameters = {"robot_effect": False}
+    # Synthesize
+    audio, sr = synth.synthesize(text_to_synth, None)
 
-    # parameters = DEFAULT_PARAMETERS.copy()
-    # if ("robot_effect" in request_data) and request_data["robot_effect"]:
-    #     for param in DEFAULT_PARAMETERS.keys():
-    #         if param in request_data:
-    #             parameters[param] = request_data[param]
-    #             parameters["robot_effect"] = True
+    # Apply post processing
+    print(request_data["postprocess"])
+    if request_data["postprocess"] and len(request_data["postprocess_config"]) > 0:
+        for plugin_name, plugin_config in request_data["postprocess_config"].items():
+            p_proc.configure_plugin(plugin_name, plugin_config)
 
-    audio, sr = synth.synthesize(text_to_synth, parameters)
+
+        audio = p_proc.apply(list(request_data["postprocess_config"].keys()), audio, sr)
+
+    # Normalize
+    audio = normalize(audio)
+
     byte_io = io.BytesIO()
     wavfile.write(byte_io, sr, audio)
 
