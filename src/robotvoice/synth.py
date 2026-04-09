@@ -4,9 +4,9 @@ import warnings
 
 warnings.simplefilter("ignore", UserWarning)
 
-from robotvoice.vits import VITS
+from robotvoice.synthesizer.vits import DistantVITS
 
-synthesizer = VITS()
+synthesizer = DistantVITS()
 
 
 def synthesize(text: str, parameters: dict | None) -> tuple[npt.NDArray, int]:
